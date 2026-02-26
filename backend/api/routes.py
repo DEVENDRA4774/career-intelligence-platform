@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from typing import Optional
 from services.parser_service import extract_text_from_pdf
 from services.ai_service import analyze_gap, rewrite_resume_bullet
-from database import get_db
+from database import get_db, AnalysisRecord
+from sqlalchemy.orm import Session
 import json
 
 router = APIRouter()
@@ -28,13 +29,14 @@ async def analyze_resume(
         raise HTTPException(status_code=500, detail=analysis_result["error"])
         
     # Optional: Save to Database
-    db = get_db()
-    record = {
-        "filename": file.filename,
-        "job_description_snippet": job_description[:100] + "...",
-        "analysis": analysis_result
-    }
-    await db.analyses.insert_one(record)
+    db: Session = next(get_db())
+    record = AnalysisRecord(
+        filename=file.filename,
+        job_description_snippet=job_description[:100] + "...",
+        analysis=analysis_result
+    )
+    db.add(record)
+    db.commit()
 
     return {"status": "success", "data": analysis_result}
 
@@ -51,9 +53,9 @@ async def rewrite_bullet(req: RewriteRequest):
 @router.get("/stats")
 async def get_platform_stats():
     try:
-        db = get_db()
+        db: Session = next(get_db())
         # Count total analyzed resumes in DB
-        total_resumes = await db.analyses.count_documents({})
+        total_resumes = db.query(AnalysisRecord).count()
         
         # Calculate derived metrics to make it look active (since MVP)
         # e.g. base number + actual db count

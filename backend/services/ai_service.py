@@ -1,4 +1,4 @@
-from google import genai
+import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 import json
@@ -8,7 +8,8 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 client = None
 if GEMINI_API_KEY:
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-1.5-flash')
 
 async def analyze_gap(resume_text: str, job_description: str) -> dict:
     prompt = f"""
@@ -58,10 +59,7 @@ async def analyze_gap(resume_text: str, job_description: str) -> dict:
     Do not add markdown backticks like ```json around the response. Return raw JSON only.
     """
     try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
+        response = model.generate_content(prompt)
         # Parse output as JSON
         text = response.text.strip()
         if text.startswith("```json"):
@@ -85,10 +83,7 @@ async def rewrite_resume_bullet(bullet_point: str, job_description: str) -> str:
     Please rewrite this bullet point to better align with the keywords and tone of the Job Description, while keeping it truthful. Make it impactful and action-oriented. Provide ONLY the rewritten text cleanly.
     """
     try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
+        response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         return bullet_point
